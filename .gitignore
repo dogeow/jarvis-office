@@ -1,0 +1,10 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+
+.agent-push-state.json
+agents-history.json
+agents-state.json
+join-keys.json
+state.json

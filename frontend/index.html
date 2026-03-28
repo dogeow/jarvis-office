@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jarvis Office Clean</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0b1220;
+      --panel: #111827;
+      --panel-soft: #172033;
+      --line: rgba(148, 163, 184, 0.16);
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --idle: #4ade80;
+      --busy: #60a5fa;
+      --sync: #c084fc;
+      --error: #f87171;
+      --offline: #94a3b8;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at top right, rgba(56, 189, 248, 0.10), transparent 30%),
+        radial-gradient(circle at left center, rgba(168, 85, 247, 0.10), transparent 25%),
+        var(--bg);
+      color: var(--text);
+      padding: 24px 14px 48px;
+    }
+
+    .app {
+      width: min(920px, 100%);
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+
+    .header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .updated {
+      color: var(--muted);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      background: rgba(17, 24, 39, 0.90);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 14px;
+      box-shadow: 0 18px 40px rgba(0, 0, 0, 0.22);
+    }
+
+    .section-title {
+      padding: 10px 14px;
+      font-size: 12px;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--muted);
+      border-bottom: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .section-body {
+      padding: 8px 10px;
+    }
+
+    details.agent {
+      border-radius: 12px;
+      margin-bottom: 4px;
+    }
+
+    details.agent[open] {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    summary.agent-row {
+      list-style: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 8px;
+      border-radius: 12px;
+    }
+
+    summary.agent-row::-webkit-details-marker,
+    summary.agent-row::marker {
+      display: none;
+    }
+
+    summary.agent-row:hover {
+      background: rgba(255, 255, 255, 0.03);
+    }
+
+    .tree {
+      color: rgba(148, 163, 184, 0.55);
+      flex-shrink: 0;
+      width: 18px;
+      text-align: center;
+    }
+
+    .name {
+      font-weight: 600;
+      color: #f8fafc;
+      min-width: 0;
+      flex-shrink: 0;
+    }
+
+    .detail {
+      color: var(--muted);
+      font-size: 12px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .ago {
+      font-size: 12px;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .chevron {
+      color: var(--muted);
+      transition: transform 0.18s ease;
+      flex-shrink: 0;
+    }
+
+    details[open] .chevron {
+      transform: rotate(90deg);
+    }
+
+    .badge {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 12px;
+      border: 1px solid transparent;
+      flex-shrink: 0;
+    }
+
+    .badge-idle { color: var(--idle); border-color: rgba(74, 222, 128, 0.35); }
+    .badge-busy { color: var(--busy); border-color: rgba(96, 165, 250, 0.35); }
+    .badge-sync { color: var(--sync); border-color: rgba(192, 132, 252, 0.35); }
+    .badge-error { color: var(--error); border-color: rgba(248, 113, 113, 0.35); }
+    .badge-offline { color: var(--offline); border-color: rgba(148, 163, 184, 0.35); }
+
+    .history {
+      padding: 0 12px 12px 38px;
+    }
+
+    .history ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+    }
+
+    .history li {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--line);
+      font-size: 13px;
+    }
+
+    .history li:last-child {
+      border-bottom: 0;
+    }
+
+    .history-detail {
+      color: #cbd5e1;
+      line-height: 1.4;
+      min-width: 0;
+      flex: 1;
+      word-break: break-word;
+    }
+
+    .history-time {
+      color: var(--muted);
+      font-size: 12px;
+      flex-shrink: 0;
+    }
+
+    .history-empty,
+    .history-loading,
+    .history-error,
+    .history-end {
+      color: var(--muted);
+      font-size: 12px;
+      padding: 8px 0;
+      border-bottom: 0;
+      justify-content: center;
+    }
+
+    .load-more {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1px solid rgba(56, 189, 248, 0.30);
+      color: #bae6fd;
+      background: rgba(56, 189, 248, 0.08);
+      padding: 6px 14px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .notice {
+      text-align: center;
+      color: var(--muted);
+      padding: 18px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+    }
+
+    @media (max-width: 640px) {
+      .header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+      .detail {
+        display: none;
+      }
+      .history {
+        padding-left: 12px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <h1>Jarvis Office Clean</h1>
+        <p>文本版多 Agent 状态看板，基于 SSE 实时刷新。</p>
+      </div>
+      <div class="updated" id="updated">等待首个数据包…</div>
+    </div>
+
+    <div id="app"></div>
+  </div>
+
+  <script>
+    const PAGE_SIZE = 15;
+    const historyCache = {};
+    const historyPage = {};
+
+    const STATUS_META = {
+      idle: { label: "空闲", cls: "badge-idle" },
+      writing: { label: "编码中", cls: "badge-busy" },
+      researching: { label: "研究中", cls: "badge-busy" },
+      executing: { label: "执行中", cls: "badge-busy" },
+      syncing: { label: "同步中", cls: "badge-sync" },
+      error: { label: "错误", cls: "badge-error" },
+      offline: { label: "离线", cls: "badge-offline" }
+    };
+
+    const ROLE_ICON = {
+      "CEO": "👔",
+      "Tech Lead": "🧑‍💻",
+      "Fullstack Dev": "🏗️",
+      "Web Designer": "🎨",
+      "Security Auditor": "🔐",
+      "QA Engineer": "🐛",
+      "Legal Advisor": "⚖️"
+    };
+
+    function escapeHtml(value) {
+      return String(value || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function timeAgo(value) {
+      if (!value) return "";
+      const diff = Date.now() - new Date(value).getTime();
+      const minutes = Math.floor(diff / 60000);
+      if (minutes < 1) return "刚刚";
+      if (minutes < 60) return `${minutes}分钟前`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours}小时前`;
+      const days = Math.floor(hours / 24);
+      if (days < 7) return `${days}天前`;
+      return new Date(value).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+
+    function badge(state) {
+      const meta = STATUS_META[state] || STATUS_META.idle;
+      return `<span class="badge ${meta.cls}">${meta.label}</span>`;
+    }
+
+    function renderAgent(agent, tree = "") {
+      const detail = agent.detail ? `<span class="detail">${escapeHtml(agent.detail)}</span>` : `<span class="detail"></span>`;
+      const icon = ROLE_ICON[agent.name] || "🤖";
+      const open = agent.state !== "idle" && agent.state !== "offline" && agent.detail ? " open" : "";
+      return `
+        <details class="agent" data-agent="${escapeHtml(agent.name)}"${open}>
+          <summary class="agent-row">
+            <span class="tree">${tree}</span>
+            <span>${icon}</span>
+            <span class="name">${escapeHtml(agent.name)}</span>
+            ${badge(agent.state)}
+            ${detail}
+            <span class="ago">${timeAgo(agent.lastSeen || agent.updated_at)}</span>
+            <span class="chevron">›</span>
+          </summary>
+          <div class="history">
+            <ul data-history="${escapeHtml(agent.name)}"></ul>
+          </div>
+        </details>
+      `;
+    }
+
+    function groupAgents(agents) {
+      const ceo = agents.find(agent => agent.isMain);
+      const leadershipNames = ["Tech Lead", "Legal Advisor"];
+      const reportNames = ["Fullstack Dev", "Web Designer", "Security Auditor", "QA Engineer"];
+      const leadership = leadershipNames.map(name => agents.find(agent => agent.name === name)).filter(Boolean);
+      const reports = reportNames.map(name => agents.find(agent => agent.name === name)).filter(Boolean);
+      const others = agents.filter(agent => !agent.isMain && !leadershipNames.includes(agent.name) && !reportNames.includes(agent.name));
+      return { ceo, leadership, reports, others };
+    }
+
+    function renderSections(agents) {
+      const { ceo, leadership, reports, others } = groupAgents(agents);
+      if (!agents.length) {
+        return `<div class="notice">暂无 Agent 数据</div>`;
+      }
+
+      let html = "";
+
+      if (ceo) {
+        html += `
+          <section class="section">
+            <div class="section-title">Executive</div>
+            <div class="section-body">${renderAgent(ceo)}</div>
+          </section>
+        `;
+      }
+
+      const leadershipRows = [];
+      leadership.forEach(agent => {
+        leadershipRows.push(renderAgent(agent, "├"));
+        if (agent.name === "Tech Lead") {
+          reports.forEach(report => leadershipRows.push(renderAgent(report, "│")));
+        }
+      });
+      if (leadershipRows.length) {
+        html += `
+          <section class="section">
+            <div class="section-title">Leadership</div>
+            <div class="section-body">${leadershipRows.join("")}</div>
+          </section>
+        `;
+      }
+
+      if (others.length) {
+        html += `
+          <section class="section">
+            <div class="section-title">Contributors</div>
+            <div class="section-body">${others.map(agent => renderAgent(agent, "•")).join("")}</div>
+          </section>
+        `;
+      }
+
+      return html;
+    }
+
+    function renderHistory(name, listNode, entries) {
+      if (!entries.length) {
+        listNode.innerHTML = `<li class="history-empty">暂无历史记录</li>`;
+        return;
+      }
+
+      const unique = [];
+      let previousDetail = null;
+      entries.forEach(entry => {
+        const detail = entry.detail || "";
+        if (detail === previousDetail) return;
+        previousDetail = detail;
+        unique.push(entry);
+      });
+
+      const page = historyPage[name] || 0;
+      const visible = unique.slice(0, (page + 1) * PAGE_SIZE);
+      const hasMore = visible.length < unique.length;
+
+      let html = visible.map(entry => `
+        <li>
+          <span class="history-detail">${escapeHtml(entry.detail || "无详情")}</span>
+          <span class="history-time">${new Date(entry.updated_at).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+        </li>
+      `).join("");
+
+      if (hasMore) {
+        html += `
+          <li class="history-end">
+            <button class="load-more" data-agent="${escapeHtml(name)}">加载更多</button>
+          </li>
+        `;
+      } else if (unique.length > PAGE_SIZE) {
+        html += `<li class="history-end">没有更多了</li>`;
+      }
+
+      listNode.innerHTML = html;
+      listNode.querySelectorAll(".load-more").forEach(button => {
+        button.addEventListener("click", event => {
+          event.preventDefault();
+          const agentName = button.dataset.agent;
+          historyPage[agentName] = (historyPage[agentName] || 0) + 1;
+          renderHistory(agentName, listNode, historyCache[agentName] || []);
+        });
+      });
+    }
+
+    async function fetchHistory(name, listNode) {
+      listNode.innerHTML = `<li class="history-loading">加载中…</li>`;
+      try {
+        const response = await fetch(`/agent/${encodeURIComponent(name)}/history?limit=50`);
+        const entries = await response.json();
+        historyCache[name] = entries;
+        renderHistory(name, listNode, entries);
+      } catch (error) {
+        listNode.innerHTML = `<li class="history-error">历史记录加载失败</li>`;
+      }
+    }
+
+    function bindAgentPanels() {
+      document.querySelectorAll("details.agent").forEach(details => {
+        const name = details.dataset.agent;
+        const listNode = details.querySelector("ul[data-history]");
+        let loaded = false;
+
+        details.addEventListener("toggle", () => {
+          if (!details.open || !listNode) return;
+          if (loaded && historyCache[name]) {
+            renderHistory(name, listNode, historyCache[name]);
+            return;
+          }
+          loaded = true;
+          fetchHistory(name, listNode);
+        });
+
+        if (details.open) {
+          details.dispatchEvent(new Event("toggle"));
+        }
+      });
+    }
+
+    function renderApp(agents) {
+      document.getElementById("app").innerHTML = renderSections(agents);
+      document.getElementById("updated").textContent = `最近刷新：${new Date().toLocaleTimeString("zh-CN")}`;
+      bindAgentPanels();
+    }
+
+    async function loadInitial() {
+      try {
+        const response = await fetch("/agents");
+        const agents = await response.json();
+        renderApp(agents);
+      } catch (error) {
+        document.getElementById("app").innerHTML = `<div class="notice">加载失败，请刷新重试</div>`;
+      }
+    }
+
+    loadInitial();
+
+    const source = new EventSource("/events");
+    source.onmessage = event => {
+      const agents = JSON.parse(event.data);
+      renderApp(agents);
+    };
+  </script>
+</body>
+</html>
