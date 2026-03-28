@@ -1,7 +1,8 @@
-# Jarvis Office Clean
+# Jarvis Office
 
-把旧仓库里真正还在用的能力抽出来，重写成一个独立、可维护的文本版多 Agent 看板。
-这版首先是给 OpenClaw 安装和持续运行用的，其次才是手动部署。
+文本版多 Agent 看板。
+
+> 参考了 https://github.com/ringhyacinth/Star-Office-UI
 
 ## 功能
 
