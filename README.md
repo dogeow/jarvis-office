@@ -1,6 +1,6 @@
 # Jarvis Office
 
-文本版多 Agent 看板。
+OpenClaw 多 Agent 看板
 
 > 参考了 https://github.com/ringhyacinth/Star-Office-UI
 
@@ -17,9 +17,8 @@
 如果你是让 OpenClaw 来部署，直接把下面这段发给它：
 
 ```text
-请进入这个项目目录，按 SKILL.md 帮我安装并启动 Jarvis Office Clean。
+请进入这个项目目录，按 SKILL.md 帮我安装并启动 Jarvis Office
 先把服务跑起来，再把访问地址和使用方式告诉我。
-如果当前仓库里有 rewrite/jarvis-office-clean，就先进入那个目录。
 ```
 
 当前仓库内的 Skill 文件在：
@@ -30,9 +29,9 @@
 
 - 怎么安装和启动
 - 怎么验证服务是否正常
-- 怎么配置 `CEO` 和其他 agent
-- 各个 agent 的命名规范、状态规范、`detail` 写法要求
-- 多 agent 接入时的 `join key` 使用要求
+- 怎么配置 `CEO` 和其他 Agent
+- 各个 Agent 的命名规范、状态规范、`detail` 写法要求
+- 多 Agent 接入时的 `join key` 使用要求
 
 ## 目录
 
@@ -117,7 +116,7 @@ OpenClaw 需要按下面的规则配 agent，完整说明看 [`SKILL.md`](./SKIL
 
 - 要短，直接写当前正在做什么
 - 不要写空话，比如“处理中”“稍等”
-- 不要泄露密钥、内网地址、隐私内容
+- 不要泄露密钥、内网地址、目录等隐私内容
 - 建议一条 detail 只表达一件事
 
 例子：

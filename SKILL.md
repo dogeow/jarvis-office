@@ -1,9 +1,9 @@
 ---
-name: jarvis-office-clean
-description: 帮主人安装并维护 Jarvis Office Clean 文本版多 Agent 看板，适配 OpenClaw，包含 agent 命名、状态同步、join key 和协作规范。
+name: jarvis-office
+description: 帮主人安装并维护 Jarvis Office 多 Agent 看板，适配 OpenClaw，包含 Agent 命名、状态同步、join key 和协作规范。
 ---
 
-# Jarvis Office Clean Skill
+# Skill for Jarvis Office
 
 这个 Skill 是给 OpenClaw 用的。
 
@@ -13,7 +13,7 @@ description: 帮主人安装并维护 Jarvis Office Clean 文本版多 Agent 看
 
 ## 1. 先理解这是什么
 
-- 文本版多 Agent 状态看板
+- 多 Agent 状态看板
 - SSE 实时刷新
 - 历史记录查看
 - 多 Agent join / push / leave
@@ -38,7 +38,7 @@ cp join-keys.sample.json join-keys.json
 
 启动成功后，告诉主人：
 
-> 现在可以打开 http://127.0.0.1:19010 查看 Jarvis Office Clean。
+> 现在可以打开 http://127.0.0.1:19010 查看 Jarvis Office。
 
 ---
 
@@ -84,7 +84,7 @@ python3 scripts/set_state.py idle "待命中"
 你应把这条规则写进自己的 `SOUL.md` 或 `AGENTS.md`：
 
 ```markdown
-## Jarvis Office Clean 状态同步规则
+## Jarvis Office 状态同步规则
 - 开始任务前，先执行 `python3 scripts/set_state.py <state> "<detail>"`
 - 完成任务后，先执行 `python3 scripts/set_state.py idle "待命中"`
 - 如果执行失败或受阻，改成 `error` 并写明原因
@@ -92,9 +92,9 @@ python3 scripts/set_state.py idle "待命中"
 
 ---
 
-## 5. 其他 agent 怎么设
+## 5. 其他 Agent 怎么设
 
-远端或访客 agent 不直接写 `state.json`，而是走：
+远端或访客 Agent 不直接写 `state.json`，而是走：
 
 - `POST /join-agent`
 - `POST /agent-push`
@@ -120,7 +120,7 @@ python3 scripts/office_agent_push.py
 
 ---
 
-## 6. agent 命名规范
+## 6. Agent 命名规范
 
 如果主人希望看板按预设组织结构显示，名称必须严格使用以下之一：
 
@@ -137,13 +137,13 @@ python3 scripts/office_agent_push.py
 - `CEO` 会显示在 `Executive`
 - `Tech Lead` 和 `Legal Advisor` 会显示在 `Leadership`
 - `Fullstack Dev`、`Web Designer`、`Security Auditor`、`QA Engineer` 会挂在 `Tech Lead` 下
-- 其他名字仍然能加入，但会显示在 `Contributors`
+- 其他名字仍然能加入，但会显示在 `Contributors` 区。
 
 命名要求：
 
-- 一个 agent 长期使用一个稳定名字
+- 一个 Agent 长期使用一个稳定名字
 - 不要今天叫 `QA`，明天叫 `Tester`
-- 不要把两个人共用一个 agent 名称
+- 不要把两个人共用一个 Agent 名称
 - 不要在名字里塞情绪、时间戳、任务名
 
 推荐：
