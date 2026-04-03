@@ -29,6 +29,7 @@ OpenClaw 多 Agent 看板。
 
 - 默认端口：`19010`（可通过 `JARVIS_OFFICE_PORT` 环境变量覆盖）
 - 访问地址：`http://127.0.0.1:19010`
+- 运行数据目录：默认项目根目录，可通过 `JARVIS_OFFICE_DATA_DIR` 指到其他目录
 
 ## 给 OpenClaw 安装
 
@@ -80,7 +81,7 @@ jarvis-office/
 
 ```bash
 cd jarvis-office
-cd backend && npm install && cd ..
+cd backend && npm install && npm test && cd ..
 cp state.sample.json state.json
 cp join-keys.sample.json join-keys.json
 node backend/app.js

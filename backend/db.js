@@ -2,9 +2,18 @@ import { existsSync, mkdirSync } from "fs";
 import { readFile, writeFile } from "fs/promises";
 import { dirname } from "path";
 
-// 返回当前时间的 ISO 字符串（格式：YYYY-MM-DD HH:MM:SS）
+function pad(value) {
+  return String(value).padStart(2, "0");
+}
+
+// 返回本地时间的 ISO 风格字符串，兼容前端和 Python 脚本解析
 export function nowIso() {
-  return new Date().toISOString().replace("T", " ").slice(0, 19);
+  const date = new Date();
+  return [
+    date.getFullYear(),
+    pad(date.getMonth() + 1),
+    pad(date.getDate()),
+  ].join("-") + `T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
 
 // 从文件加载 JSON，文件不存在时返回 defaultValue 的深拷贝

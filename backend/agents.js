@@ -16,10 +16,11 @@ import { dirname } from "path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROJECT_DIR = resolve(__dirname, "..");
-const STATE_FILE = resolve(PROJECT_DIR, "state.json");
-const AGENTS_STATE_FILE = resolve(PROJECT_DIR, "agents-state.json");
-const HISTORY_FILE = resolve(PROJECT_DIR, "agents-history.json");
-const JOIN_KEYS_FILE = resolve(PROJECT_DIR, "join-keys.json");
+const DATA_DIR = resolve(process.env.JARVIS_OFFICE_DATA_DIR || PROJECT_DIR);
+const STATE_FILE = resolve(DATA_DIR, "state.json");
+const AGENTS_STATE_FILE = resolve(DATA_DIR, "agents-state.json");
+const HISTORY_FILE = resolve(DATA_DIR, "agents-history.json");
+const JOIN_KEYS_FILE = resolve(DATA_DIR, "join-keys.json");
 
 // --- Config helpers ---
 
@@ -56,8 +57,13 @@ async function loadState() {
   };
 }
 
-function buildMainAgent(state) {
-  return { ...MAIN_AGENT_TEMPLATE, state: state.state, detail: state.detail, updated_at: state.updated_at };
+function buildMainAgent(state = {}) {
+  return {
+    ...MAIN_AGENT_TEMPLATE,
+    state: normalizeState(state.state || MAIN_AGENT_TEMPLATE.state),
+    detail: String(state.detail ?? MAIN_AGENT_TEMPLATE.detail),
+    updated_at: String(state.updated_at || nowIso()),
+  };
 }
 
 // 设置 CEO 状态，写入 state.json 并同步 agents-state.json
@@ -80,23 +86,22 @@ export async function setMainState({ state, detail }) {
 // --- Guest agents ---
 
 async function loadAgentsRaw() {
-  return await loadJson(AGENTS_STATE_FILE, []);
+  const agents = await loadJson(AGENTS_STATE_FILE, []);
+  return Array.isArray(agents) ? agents : [];
 }
 
 function mergeMainAgent(agents, state) {
   const main = buildMainAgent(state);
-  const merged = [];
-  let foundMain = false;
+  const merged = [main];
   for (const agent of agents) {
-    if (agent.isMain || (agent.name === "CEO" && agent.agentId === "ceo")) {
-      merged.push({ ...main });
-      foundMain = true;
-    } else {
-      merged.push({ ...agent });
-    }
+    if (agent.isMain || (agent.name === "CEO" && agent.agentId === "ceo")) continue;
+    merged.push({ ...agent });
   }
-  if (!foundMain) merged.unshift(main);
   return merged;
+}
+
+async function loadMergedAgents() {
+  return mergeMainAgent(await loadAgentsRaw(), await loadState());
 }
 
 // 持久化 agents 到文件
@@ -107,34 +112,36 @@ export async function saveAgents(agents) {
 function agentAgeSeconds(agent) {
   const timestamp = agent.lastPushAt || agent.updated_at;
   if (!timestamp) return null;
-  try {
-    return (Date.now() - new Date(timestamp).getTime()) / 1000;
-  } catch {
-    return null;
-  }
+  const parsed = new Date(timestamp).getTime();
+  if (!Number.isFinite(parsed)) return null;
+  return (Date.now() - parsed) / 1000;
 }
 
 async function cleanupGuestAgents(agents) {
   let changed = false;
-  for (const agent of agents) {
-    if (agent.isMain) continue;
+  const cleaned = agents.map((agent) => {
+    if (agent.isMain) return { ...agent };
+
     const normalized = { ...agent };
     const age = agentAgeSeconds(normalized);
-    if (age !== null && age > OFFLINE_AFTER_SECONDS) {
-      if (normalized.state !== "offline" || normalized.authStatus !== "offline") {
-        normalized.state = "offline";
-        normalized.authStatus = "offline";
-        changed = true;
-      }
+    if (
+      age !== null &&
+      age > OFFLINE_AFTER_SECONDS &&
+      (normalized.state !== "offline" || normalized.authStatus !== "offline")
+    ) {
+      normalized.state = "offline";
+      normalized.authStatus = "offline";
+      changed = true;
     }
-  }
-  return { cleaned: agents, changed };
+    return normalized;
+  });
+
+  return { cleaned, changed };
 }
 
 // 获取所有 Agent（含 CEO 合并、超时清理、lastSeen 字段）
 export async function getAllAgents() {
-  const state = await loadState();
-  let agents = await mergeMainAgent(await loadAgentsRaw(), state);
+  let agents = await loadMergedAgents();
   const { cleaned, changed } = await cleanupGuestAgents(agents);
   if (changed) await saveAgents(cleaned);
   return cleaned.map((a) => ({ ...a, lastSeen: a.lastPushAt || a.updated_at }));
@@ -143,7 +150,7 @@ export async function getAllAgents() {
 // 获取 CEO 状态（getAllAgents 的第一个元素）
 export async function getMainState() {
   const agents = await getAllAgents();
-  return agents[0] || {};
+  return agents.find((agent) => agent.isMain || (agent.name === "CEO" && agent.agentId === "ceo")) || {};
 }
 
 // 生成 SSE 签名，用于判断是否需要推送
@@ -159,7 +166,8 @@ export function generateAgentId() {
 // --- Join keys ---
 
 async function loadJoinKeys() {
-  return await loadJson(JOIN_KEYS_FILE, { keys: [] });
+  const store = await loadJson(JOIN_KEYS_FILE, { keys: [] });
+  return { ...store, keys: Array.isArray(store.keys) ? store.keys : [] };
 }
 
 // 持久化 join keys 到文件
@@ -175,11 +183,9 @@ export function findJoinKey(joinKeys, keyValue) {
 // 检查 join key 是否已过期
 export function keyIsExpired(keyItem) {
   if (!keyItem.expiresAt) return false;
-  try {
-    return Date.now() > new Date(keyItem.expiresAt).getTime();
-  } catch {
-    return false;
-  }
+  const parsed = new Date(keyItem.expiresAt).getTime();
+  if (!Number.isFinite(parsed)) return false;
+  return Date.now() > parsed;
 }
 
 function countActiveAgentsForKey(agents, joinKey, excludeAgentId) {
@@ -203,6 +209,17 @@ function allowsJoin(keyItem, existingAgentId = null) {
     return { allowed: false, error: "join key 已被占用" };
   }
   return { allowed: true, error: null };
+}
+
+function releaseJoinKeysForAgent(joinKeys, agentId) {
+  if (!agentId) return;
+  for (const keyItem of joinKeys.keys) {
+    if (keyItem.usedByAgentId !== agentId) continue;
+    keyItem.used = false;
+    keyItem.usedBy = null;
+    keyItem.usedByAgentId = null;
+    keyItem.usedAt = null;
+  }
 }
 
 // --- History ---
@@ -241,16 +258,17 @@ export async function getAgentHistory(name, rawLimit) {
 export function annotateHistory(entries) {
   return entries.map((entry, index) => {
     let duration = null;
-    try {
-      const current = new Date(entry.updated_at).getTime();
+    const current = new Date(entry.updated_at).getTime();
+    if (Number.isFinite(current)) {
+      const next = index + 1 < entries.length ? new Date(entries[index + 1].updated_at).getTime() : null;
       const seconds =
-        index + 1 < entries.length
-          ? Math.max(0, (current - new Date(entries[index + 1].updated_at).getTime()) / 1000)
+        next !== null && Number.isFinite(next)
+          ? Math.max(0, (current - next) / 1000)
           : Math.max(0, (Date.now() - current) / 1000);
       if (seconds >= 3600) duration = `${Math.floor(seconds / 3600)}h`;
       else if (seconds >= 60) duration = `${Math.floor(seconds / 60)}m`;
       else duration = `${Math.floor(seconds)}s`;
-    } catch {}
+    }
     return { ...entry, duration };
   });
 }
@@ -272,7 +290,7 @@ export async function joinAgent({ name, joinKey, detail, state, source }) {
   const keyItem = findJoinKey(joinKeys, joinKeyVal);
   if (!keyItem) return { error: "join key 无效", status: 403 };
 
-  const agents = await mergeMainAgent(await loadAgentsRaw());
+  const agents = await loadMergedAgents();
   const existing = agents.find((item) => !item.isMain && item.name === nameVal) || null;
   const existingAgentId = existing ? String(existing.agentId) : null;
 
@@ -285,10 +303,19 @@ export async function joinAgent({ name, joinKey, detail, state, source }) {
 
   const updatedAt = nowIso();
   let agent;
+  let shouldRecordHistory = false;
   if (existing) {
+    shouldRecordHistory = existing.state !== stateValue || existing.detail !== detailVal;
+    if (existing.joinKey && existing.joinKey !== joinKeyVal) {
+      releaseJoinKeysForAgent(joinKeys, existing.agentId);
+    }
     existing.state = stateValue;
     existing.detail = detailVal;
+    existing.joinKey = joinKeyVal;
+    existing.source = String(source || existing.source || "remote");
     existing.authStatus = "approved";
+    existing.authApprovedAt = updatedAt;
+    existing.authExpiresAt = null;
     existing.lastPushAt = updatedAt;
     existing.updated_at = updatedAt;
     agent = existing;
@@ -308,7 +335,7 @@ export async function joinAgent({ name, joinKey, detail, state, source }) {
       lastPushAt: updatedAt,
     };
     agents.push(agent);
-    await recordHistory(nameVal, stateValue, detailVal, updatedAt);
+    shouldRecordHistory = true;
   }
 
   keyItem.used = true;
@@ -318,6 +345,7 @@ export async function joinAgent({ name, joinKey, detail, state, source }) {
 
   await saveJoinKeys(joinKeys);
   await saveAgents(agents);
+  if (shouldRecordHistory) await recordHistory(nameVal, stateValue, detailVal, updatedAt);
 
   return { ok: true, agentId: agent.agentId, authStatus: "approved" };
 }
@@ -338,7 +366,7 @@ export async function pushAgent({ joinKey, name, agentId, detail, state }) {
   if (!keyItem) return { error: "join key 无效", status: 403 };
   if (keyIsExpired(keyItem)) return { error: "join key 已过期", status: 403 };
 
-  const agents = await mergeMainAgent(await loadAgentsRaw());
+  const agents = await loadMergedAgents();
   const agent = agents.find(
     (item) =>
       !item.isMain &&
@@ -369,7 +397,7 @@ export async function leaveAgent({ agentId, name }) {
   if (!agentIdVal && !nameVal) return { error: "agentId 或 name 必填", status: 400 };
 
   const joinKeys = await loadJoinKeys();
-  let agents = await mergeMainAgent(await loadAgentsRaw());
+  let agents = await loadMergedAgents();
   const target = agents.find(
     (item) =>
       !item.isMain &&
@@ -379,16 +407,7 @@ export async function leaveAgent({ agentId, name }) {
   if (!target) return { error: "agent 不存在", status: 404 };
 
   agents = agents.filter((item) => item.agentId !== target.agentId);
-
-  for (const keyItem of joinKeys.keys || []) {
-    if (keyItem.usedByAgentId === target.agentId) {
-      keyItem.used = false;
-      keyItem.usedBy = null;
-      keyItem.usedByAgentId = null;
-      keyItem.usedAt = null;
-      break;
-    }
-  }
+  releaseJoinKeysForAgent(joinKeys, target.agentId);
 
   await saveJoinKeys(joinKeys);
   await saveAgents(agents);
