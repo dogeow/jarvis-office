@@ -23,6 +23,7 @@ const JOIN_KEYS_FILE = resolve(PROJECT_DIR, "join-keys.json");
 
 // --- Config helpers ---
 
+// 标准化状态值，别名映射 + 合法校验
 export function normalizeState(raw, { allowOffline = false } = {}) {
   let value = (raw || "").trim().toLowerCase();
   if (allowOffline && value === "offline") return "offline";
@@ -31,6 +32,7 @@ export function normalizeState(raw, { allowOffline = false } = {}) {
   return "idle";
 }
 
+// 字符串长度校验，返回裁剪后值和错误信息
 export function validateStr(value, maxLength, fieldName) {
   const trimmed = String(value || "").trim();
   if (trimmed.length > maxLength) {
@@ -58,6 +60,7 @@ function buildMainAgent(state) {
   return { ...MAIN_AGENT_TEMPLATE, state: state.state, detail: state.detail, updated_at: state.updated_at };
 }
 
+// 设置 CEO 状态，写入 state.json 并同步 agents-state.json
 export async function setMainState({ state, detail }) {
   const stateValue = normalizeState(state);
   const { value: detailVal, error } = validateStr(detail, MAX_DETAIL_LENGTH, "detail");
@@ -96,6 +99,7 @@ function mergeMainAgent(agents, state) {
   return merged;
 }
 
+// 持久化 agents 到文件
 export async function saveAgents(agents) {
   await saveJson(AGENTS_STATE_FILE, agents);
 }
@@ -127,6 +131,7 @@ async function cleanupGuestAgents(agents) {
   return { cleaned: agents, changed };
 }
 
+// 获取所有 Agent（含 CEO 合并、超时清理、lastSeen 字段）
 export async function getAllAgents() {
   const state = await loadState();
   let agents = await mergeMainAgent(await loadAgentsRaw(), state);
@@ -135,15 +140,18 @@ export async function getAllAgents() {
   return cleaned.map((a) => ({ ...a, lastSeen: a.lastPushAt || a.updated_at }));
 }
 
+// 获取 CEO 状态（getAllAgents 的第一个元素）
 export async function getMainState() {
   const agents = await getAllAgents();
   return agents[0] || {};
 }
 
+// 生成 SSE 签名，用于判断是否需要推送
 export function payloadSignature(payload) {
   return JSON.stringify(payload, null, 0);
 }
 
+// 生成唯一 Agent ID
 export function generateAgentId() {
   return `agent_${Date.now()}`;
 }
@@ -154,14 +162,17 @@ async function loadJoinKeys() {
   return await loadJson(JOIN_KEYS_FILE, { keys: [] });
 }
 
+// 持久化 join keys 到文件
 export async function saveJoinKeys(joinKeys) {
   await saveJson(JOIN_KEYS_FILE, joinKeys);
 }
 
+// 在 keys 列表中查找指定 key
 export function findJoinKey(joinKeys, keyValue) {
   return joinKeys.keys.find((item) => item.key === keyValue) || null;
 }
 
+// 检查 join key 是否已过期
 export function keyIsExpired(keyItem) {
   if (!keyItem.expiresAt) return false;
   try {
@@ -204,6 +215,7 @@ async function saveHistoryStore(store) {
   await saveJson(HISTORY_FILE, store);
 }
 
+// 记录一条历史（去重：相同 state + detail 不重复记录）
 export async function recordHistory(name, state, detail, updatedAt) {
   const store = await loadHistoryStore();
   const entries = store[name] || [];
@@ -213,6 +225,7 @@ export async function recordHistory(name, state, detail, updatedAt) {
   await saveHistoryStore(store);
 }
 
+// 获取指定 Agent 的历史记录，支持 limit 参数
 export async function getAgentHistory(name, rawLimit) {
   const store = await loadHistoryStore();
   const entries = store[name] || [];
@@ -224,6 +237,7 @@ export async function getAgentHistory(name, rawLimit) {
   return entries.slice(0, limit);
 }
 
+// 为历史条目补充 duration 字段（上一条到当前条的时间差）
 export function annotateHistory(entries) {
   return entries.map((entry, index) => {
     let duration = null;
@@ -243,6 +257,7 @@ export function annotateHistory(entries) {
 
 // --- Join agent service ---
 
+// Agent 加入：校验 key、检测重入、更新或创建 Agent 记录
 export async function joinAgent({ name, joinKey, detail, state, source }) {
   const { value: nameVal, error: nameErr } = validateStr(name, MAX_NAME_LENGTH, "name");
   const { value: joinKeyVal, error: keyErr } = validateStr(joinKey, MAX_JOIN_KEY_LENGTH, "joinKey");
@@ -309,6 +324,7 @@ export async function joinAgent({ name, joinKey, detail, state, source }) {
 
 // --- Agent push service ---
 
+// Agent 状态推送：校验 key、更新已有 Agent 的状态
 export async function pushAgent({ joinKey, name, agentId, detail, state }) {
   const joinKeyVal = String(joinKey || "").trim();
   const nameVal = String(name || "").trim();
@@ -346,6 +362,7 @@ export async function pushAgent({ joinKey, name, agentId, detail, state }) {
 
 // --- Leave agent service ---
 
+// Agent 离开：移除 Agent 并释放 join key
 export async function leaveAgent({ agentId, name }) {
   const agentIdVal = String(agentId || "").trim();
   const nameVal = String(name || "").trim();
