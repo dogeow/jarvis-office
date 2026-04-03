@@ -29,11 +29,10 @@ description: 帮主人安装并维护 Jarvis Office 多 Agent 看板，适配 Op
 按顺序执行：
 
 ```bash
-python3 -m venv .venv
-.venv/bin/pip install -r backend/requirements.txt
+cd backend && npm install && cd ..
 cp state.sample.json state.json
 cp join-keys.sample.json join-keys.json
-.venv/bin/python backend/app.py
+node backend/app.js
 ```
 
 启动成功后，告诉主人：
@@ -141,6 +140,7 @@ python3 scripts/office_agent_push.py
 
 命名要求：
 
+- 名称不能超过 **40 个字符**（服务端会拒绝超长名称）
 - 一个 Agent 长期使用一个稳定名字
 - 不要今天叫 `QA`，明天叫 `Tester`
 - 不要把两个人共用一个 Agent 名称
@@ -200,7 +200,7 @@ python3 scripts/office_agent_push.py
 推荐写法：
 
 - `正在写 README`
-- `在查 Flask SSE 断流`
+- `在查 SSE 断流`
 - `执行 smoke test`
 - `联调 join-agent`
 - `发现 403，正在排查`
