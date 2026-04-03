@@ -207,7 +207,7 @@ interface GroupedAgents {
 
 function groupAgents(agents: Agent[]): GroupedAgents {
   const ceo = agents.find((a) => a.isMain);
-  const leadershipNames = ["Tech Lead", "Legal Advisor"];
+  const leadershipNames = ["Tech Lead"];
   const reportNames = ["Fullstack Dev", "Web Designer", "Security Auditor", "QA Engineer"];
 
   const leadership = leadershipNames
