@@ -37,6 +37,9 @@ STATE_ALIASES = {
 MAX_HISTORY_LIMIT = 100
 DEFAULT_HISTORY_LIMIT = 50
 OFFLINE_AFTER_SECONDS = 300
+MAX_NAME_LENGTH = 40
+MAX_DETAIL_LENGTH = 200
+MAX_JOIN_KEY_LENGTH = 128
 
 MAIN_AGENT_TEMPLATE = {
     "agentId": "ceo",
@@ -93,6 +96,14 @@ def normalize_state(raw: str | None, *, allow_offline: bool = False) -> str:
     if value in VALID_STATES:
         return value
     return "idle"
+
+
+def validate_str(value: str, max_length: int, field_name: str) -> tuple[str, str | None]:
+    """Return (trimmed_value, error_message). error_message is None if valid."""
+    trimmed = value.strip()
+    if len(trimmed) > max_length:
+        return trimmed, f"{field_name} 不能超过 {max_length} 个字符"
+    return trimmed, None
 
 
 def load_state() -> dict[str, Any]:
@@ -380,7 +391,9 @@ def get_status():
 def set_state():
     payload = request.get_json(silent=True) or {}
     state_value = normalize_state(payload.get("state"))
-    detail = str(payload.get("detail") or "")
+    detail, err = validate_str(str(payload.get("detail") or ""), MAX_DETAIL_LENGTH, "detail")
+    if err:
+        return jsonify({"ok": False, "msg": err}), 400
     return jsonify(update_main_agent(state_value, detail))
 
 
@@ -424,13 +437,16 @@ def history(name: str):
 @app.route("/join-agent", methods=["POST"])
 def join_agent():
     payload = request.get_json(silent=True) or {}
-    name = str(payload.get("name") or "").strip()
-    join_key = str(payload.get("joinKey") or "").strip()
-    detail = str(payload.get("detail") or "")
+    name, name_err = validate_str(str(payload.get("name") or ""), MAX_NAME_LENGTH, "name")
+    join_key, key_err = validate_str(str(payload.get("joinKey") or ""), MAX_JOIN_KEY_LENGTH, "joinKey")
+    detail, detail_err = validate_str(str(payload.get("detail") or ""), MAX_DETAIL_LENGTH, "detail")
     state_value = normalize_state(payload.get("state"))
 
     if not name or not join_key:
         return jsonify({"ok": False, "msg": "name 和 joinKey 必填"}), 400
+    for err in (name_err, key_err, detail_err):
+        if err:
+            return jsonify({"ok": False, "msg": err}), 400
 
     with DATA_LOCK:
         join_keys = load_join_keys()
@@ -488,11 +504,13 @@ def agent_push():
     join_key = str(payload.get("joinKey") or "").strip()
     name = str(payload.get("name") or "").strip()
     agent_id = str(payload.get("agentId") or "").strip()
-    detail = str(payload.get("detail") or "")
+    detail, detail_err = validate_str(str(payload.get("detail") or ""), MAX_DETAIL_LENGTH, "detail")
     state_value = normalize_state(payload.get("state"))
 
     if not join_key:
         return jsonify({"ok": False, "msg": "joinKey 必填"}), 400
+    if detail_err:
+        return jsonify({"ok": False, "msg": detail_err}), 400
 
     with DATA_LOCK:
         key_item = find_join_key(join_key)
