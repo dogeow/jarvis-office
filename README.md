@@ -45,8 +45,6 @@ jarvis-office-clean/
 ├── scripts/
 │   ├── set_state.py
 │   └── office_agent_push.py
-├── docs/
-│   └── KEY_TECH_POINTS.md
 ├── SKILL.md
 ├── .gitignore
 ├── state.sample.json
@@ -125,9 +123,3 @@ OpenClaw 需要按下面的规则配 agent，完整说明看 [`SKILL.md`](./SKIL
 - `在查 SSE 断线重连`
 - `执行 join-agent 联调`
 - `发现鉴权错误，正在排查`
-
-## 关键技术点
-
-看这里：
-
-- [`docs/KEY_TECH_POINTS.md`](./docs/KEY_TECH_POINTS.md)
