@@ -57,7 +57,7 @@ jarvis-office-clean/
 ## 启动
 
 ```bash
-cd rewrite/jarvis-office-clean
+cd jarvis-office
 python3 -m venv .venv
 .venv/bin/pip install -r backend/requirements.txt
 cp state.sample.json state.json
@@ -70,14 +70,6 @@ cp join-keys.sample.json join-keys.json
 ```text
 http://127.0.0.1:19010
 ```
-
-如果是从当前大仓库里启动，先执行：
-
-```bash
-cd rewrite/jarvis-office-clean
-```
-
-如果后面把这个目录单独拆成新仓库，那上面的命令就直接在仓库根目录执行。
 
 运行后会自动生成这些运行时文件，它们已经被 `.gitignore` 排除：
 
@@ -140,17 +132,3 @@ OpenClaw 需要按下面的规则配 agent，完整说明看 [`SKILL.md`](./SKIL
 看这里：
 
 - [`docs/KEY_TECH_POINTS.md`](./docs/KEY_TECH_POINTS.md)
-
-## 这版保留什么
-
-- 文本状态看板
-- SSE 推送
-- 多 Agent 接入
-- 历史记录
-
-## 这版明确去掉什么
-
-- canvas / Phaser
-- 像素角色移动
-- 桌面壳
-- 旧 UI 资产链路
